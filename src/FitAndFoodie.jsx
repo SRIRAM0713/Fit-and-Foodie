@@ -223,7 +223,6 @@ const ABOUT_FEATURES = [
   { icon: "🔬", label: "Nutritionist-Approved" },
   { icon: "♻️", label: "Eco Packaging" },
 ];
-
 export default function App() {
   const [activeNav, setActiveNav] = useState("Home");
   const [menuCategory, setMenuCategory] = useState("All");
@@ -240,6 +239,9 @@ export default function App() {
   const [formSent, setFormSent] = useState(false);
   const [formSending, setFormSending] = useState(false);
   const [formError, setFormError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [itemQty, setItemQty] = useState({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     emailjs.init(EMAILJS_PUBLIC_KEY);
@@ -249,6 +251,9 @@ export default function App() {
     const onScroll = () => setScrolled(window.scrollY > 60);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  useEffect(() => {
+    setTimeout(() => setLoading(false), 1500);
   }, []);
 
   const scrollTo = (section) => {
@@ -279,6 +284,13 @@ export default function App() {
         .map((i) => (i.id === id ? { ...i, qty: i.qty + delta } : i))
         .filter((i) => i.qty > 0),
     );
+  };
+  const increaseQty = (id) => {
+    setItemQty((prev) => ({ ...prev, [id]: (prev[id] || 1) + 1 }));
+  };
+
+  const decreaseQty = (id) => {
+    setItemQty((prev) => ({ ...prev, [id]: Math.max(1, (prev[id] || 1) - 1) }));
   };
 
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
@@ -318,10 +330,14 @@ export default function App() {
     }
   };
 
-  const filteredMenu =
-    menuCategory === "All"
-      ? MENU_ITEMS
-      : MENU_ITEMS.filter((i) => i.category === menuCategory);
+  const filteredMenu = MENU_ITEMS.filter((i) => {
+    const matchesCategory =
+      menuCategory === "All" || i.category === menuCategory;
+    const matchesSearch = i.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <div>
@@ -435,6 +451,13 @@ export default function App() {
             {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
           </button>
         </div>
+        <button
+          className="btn-primary mobile-cart-btn"
+          style={{ display: "none" }}
+          onClick={() => setCartOpen(true)}
+        >
+          🛒 {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+        </button>
       </nav>
 
       {/* Hero */}
@@ -505,6 +528,24 @@ export default function App() {
               ingredients.
             </p>
           </div>
+          <div className="menu-search">
+            <span className="search-icon">🔍</span>
+            <input
+              type="text"
+              placeholder="Search for a dish..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+            {searchQuery && (
+              <button
+                className="search-clear"
+                onClick={() => setSearchQuery("")}
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <div className="category-filters">
             {MENU_CATEGORIES.map((cat) => (
               <button
@@ -517,28 +558,63 @@ export default function App() {
             ))}
           </div>
           <div className="menu-grid">
-            {filteredMenu.map((item) => (
-              <div key={item.id} className="menu-card">
-                <div className="menu-card-emoji">{item.emoji}</div>
-                <div className="menu-card-top">
-                  <h3>{item.name}</h3>
-                  <span className="menu-tag">{item.tag}</span>
-                </div>
-                <p className="menu-card-desc">{item.desc}</p>
-                <div className="menu-card-footer">
-                  <div>
-                    <span className="menu-price">${item.price}</span>
-                    <span className="menu-kcal">{item.cal} kcal</span>
+            {loading
+              ? Array(6)
+                  .fill(0)
+                  .map((_, i) => (
+                    <div key={i} className="menu-card skeleton-card">
+                      <div className="skeleton skeleton-emoji" />
+                      <div className="skeleton skeleton-title" />
+                      <div className="skeleton skeleton-desc" />
+                      <div className="skeleton skeleton-desc short" />
+                      <div className="skeleton skeleton-footer" />
+                    </div>
+                  ))
+              : filteredMenu.map((item) => (
+                  <div key={item.id} className="menu-card">
+                    <div className="menu-card-emoji">{item.emoji}</div>
+                    <div className="menu-card-top">
+                      <h3>{item.name}</h3>
+                      <span className="menu-tag">{item.tag}</span>
+                    </div>
+                    <p className="menu-card-desc">{item.desc}</p>
+                    <div className="menu-card-footer">
+                      <div>
+                        <span className="menu-price">${item.price}</span>
+                        <span className="menu-kcal">{item.cal} kcal</span>
+                      </div>
+                      <div className="card-add-controls">
+                        <div className="card-qty-selector">
+                          <button
+                            className="qty-btn"
+                            onClick={() => decreaseQty(item.id)}
+                          >
+                            −
+                          </button>
+                          <span className="qty-value">
+                            {itemQty[item.id] || 1}
+                          </span>
+                          <button
+                            className="qty-btn"
+                            onClick={() => increaseQty(item.id)}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <button
+                          className={`add-btn ${addedId === item.id ? "added" : ""}`}
+                          onClick={() => {
+                            const qty = itemQty[item.id] || 1;
+                            for (let i = 0; i < qty; i++) addToCart(item);
+                            setItemQty((prev) => ({ ...prev, [item.id]: 1 }));
+                          }}
+                        >
+                          {addedId === item.id ? "✓ Added" : "+ Add"}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    className={`add-btn ${addedId === item.id ? "added" : ""}`}
-                    onClick={() => addToCart(item)}
-                  >
-                    {addedId === item.id ? "✓ Added" : "+ Add"}
-                  </button>
-                </div>
-              </div>
-            ))}
+                ))}
           </div>
         </div>
       </section>
