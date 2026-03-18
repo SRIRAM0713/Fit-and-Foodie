@@ -242,6 +242,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [itemQty, setItemQty] = useState({});
   const [loading, setLoading] = useState(true);
+  const [orderSummary, setOrderSummary] = useState(null);
 
   useEffect(() => {
     emailjs.init(EMAILJS_PUBLIC_KEY);
@@ -297,10 +298,17 @@ export default function App() {
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
   const placeOrder = () => {
-    setOrderPlaced(true);
+    setOrderSummary({
+      items: cart,
+      total: cartTotal,
+      orderId: Math.floor(Math.random() * 90000) + 10000,
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    });
     setCart([]);
     setCartOpen(false);
-    setTimeout(() => setOrderPlaced(false), 4000);
   };
 
   const handleContact = async (e) => {
@@ -344,6 +352,57 @@ export default function App() {
       {/* Toast */}
       {orderPlaced && (
         <div className="toast">🎉 Order placed! Cooking starts now.</div>
+      )}
+      {/* Order Summary Modal */}
+      {orderSummary && (
+        <div
+          className="order-modal-overlay"
+          onClick={() => setOrderSummary(null)}
+        >
+          <div className="order-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="order-modal-header">
+              <div className="order-success-icon">🎉</div>
+              <h2>Order Confirmed!</h2>
+              <p>Your food is being prepared fresh for you.</p>
+            </div>
+            <div className="order-id-row">
+              <span>Order ID</span>
+              <span className="order-id">#FF{orderSummary.orderId}</span>
+            </div>
+            <div className="order-items-list">
+              {orderSummary.items.map((item) => (
+                <div key={item.id} className="order-item-row">
+                  <span className="order-item-emoji">{item.emoji}</span>
+                  <span className="order-item-name">{item.name}</span>
+                  <span className="order-item-qty">x{item.qty}</span>
+                  <span className="order-item-price">
+                    ${(item.price * item.qty).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="order-summary-footer">
+              <div className="order-summary-row">
+                <span>Delivery</span>
+                <span className="free">Free</span>
+              </div>
+              <div className="order-summary-total">
+                <span>Total Paid</span>
+                <span>${orderSummary.total.toFixed(2)}</span>
+              </div>
+              <div className="order-eta">
+                🕐 Estimated delivery by <strong>{orderSummary.time}</strong> +
+                35 min
+              </div>
+              <button
+                className="btn-primary full-width"
+                onClick={() => setOrderSummary(null)}
+              >
+                Back to Menu →
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Cart Drawer */}
@@ -459,7 +518,21 @@ export default function App() {
           🛒 {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
         </button>
       </nav>
-
+      {/* Sticky Cart Bar */}
+      {cartCount > 0 && !cartOpen && (
+        <div className="sticky-cart-bar" onClick={() => setCartOpen(true)}>
+          <div className="sticky-cart-left">
+            <span className="sticky-cart-count">
+              {cartCount} item{cartCount > 1 ? "s" : ""}
+            </span>
+            <span className="sticky-cart-label">in your cart</span>
+          </div>
+          <div className="sticky-cart-right">
+            <span className="sticky-cart-total">${cartTotal.toFixed(2)}</span>
+            <span className="sticky-cart-btn">View Cart →</span>
+          </div>
+        </div>
+      )}
       {/* Hero */}
       <section id="home" className="hero">
         <div className="hero-glow-top" />
