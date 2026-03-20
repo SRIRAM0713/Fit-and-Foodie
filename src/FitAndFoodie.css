@@ -1755,3 +1755,23 @@ body {
   padding: 10px 16px;
   border-radius: 10px;
 }
+/* =============================================
+   NAV USER
+   ============================================= */
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dark-green);
+}
+
+.nav-logout {
+  padding: 8px 16px !important;
+  font-size: 13px !important;
+}

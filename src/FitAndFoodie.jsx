@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "./supabase";
+import Auth from "./Auth";
 import emailjs from "@emailjs/browser";
 import "./FitAndFoodie.css";
 
@@ -243,6 +245,8 @@ export default function App() {
   const [itemQty, setItemQty] = useState({});
   const [loading, setLoading] = useState(true);
   const [orderSummary, setOrderSummary] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authOpen, setAuthOpen] = useState(false);
 
   useEffect(() => {
     emailjs.init(EMAILJS_PUBLIC_KEY);
@@ -256,7 +260,22 @@ export default function App() {
   useEffect(() => {
     setTimeout(() => setLoading(false), 1500);
   }, []);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
 
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      if (event === "SIGNED_IN") {
+        setAuthOpen(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
   const scrollTo = (section) => {
     const id = section.toLowerCase().replace(/\s/g, "-");
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -264,6 +283,10 @@ export default function App() {
   };
 
   const addToCart = (item) => {
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
     setCart((prev) => {
       const existing = prev.find((i) => i.id === item.id);
       if (existing)
@@ -297,6 +320,10 @@ export default function App() {
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
   const placeOrder = () => {
     setOrderSummary({
       items: cart,
@@ -315,6 +342,11 @@ export default function App() {
     e.preventDefault();
     setFormSending(true);
     setFormError("");
+
+    const handleLogout = async () => {
+      await supabase.auth.signOut();
+      setUser(null);
+    };
 
     try {
       await emailjs.send(
@@ -352,6 +384,13 @@ export default function App() {
       {/* Toast */}
       {orderPlaced && (
         <div className="toast">🎉 Order placed! Cooking starts now.</div>
+      )}
+      {/* Auth Modal */}
+      {authOpen && (
+        <Auth
+          onClose={() => setAuthOpen(false)}
+          onSuccess={() => setAuthOpen(false)}
+        />
       )}
       {/* Order Summary Modal */}
       {orderSummary && (
@@ -505,10 +544,37 @@ export default function App() {
               {link}
             </button>
           ))}
-          <button className="btn-primary" onClick={() => setCartOpen(true)}>
-            🛒{" "}
-            {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
-          </button>
+          {user ? (
+            <div className="nav-user">
+              <span className="nav-user-name">
+                👋 {user.user_metadata?.full_name || user.email.split("@")[0]}
+              </span>
+              <button
+                className="btn-secondary nav-logout"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+              <button className="btn-primary" onClick={() => setCartOpen(true)}>
+                🛒{" "}
+                {cartCount > 0 && (
+                  <span className="cart-badge">{cartCount}</span>
+                )}
+              </button>
+            </div>
+          ) : (
+            <div className="nav-user">
+              <button
+                className="btn-secondary"
+                onClick={() => setAuthOpen(true)}
+              >
+                Login
+              </button>
+              <button className="btn-primary" onClick={() => setAuthOpen(true)}>
+                Sign Up
+              </button>
+            </div>
+          )}
         </div>
         <button
           className="btn-primary mobile-cart-btn"
